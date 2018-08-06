@@ -1,0 +1,262 @@
+REPORT zsb_ds.
+
+TABLES: zsb_t_ds.
+
+DATA: gv_tcno          TYPE n LENGTH 11,
+      gv_ad(20),
+      gv_soyad(15),
+      gv_dogumyeri(20),
+      gv_dtarihi       TYPE dats,
+      gv_bay,
+      gv_bayan,
+      gv_ing,
+      gv_onlisans,
+      gv_lisans,
+      gv_ylisans,
+      gv_diger,
+      gv_lang(20).
+
+
+CALL SCREEN 100.
+*&---------------------------------------------------------------------*
+*&      Module  STATUS_0100  OUTPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE status_0100 OUTPUT.
+  SET PF-STATUS 'TUSLAR'.
+  SET TITLEBAR 'TITLE' WITH sy-datum sy-uzeit.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0100 INPUT.
+  CASE sy-ucomm.
+    WHEN 'SEARCH'.
+      PERFORM search.
+    WHEN 'SAVE'.
+      PERFORM save.
+    WHEN 'ERASE'.
+      PERFORM erase.
+    WHEN 'UPDATE'.
+      PERFORM update.
+    WHEN 'CLEAN'.
+      PERFORM clean.
+    WHEN 'BACK' OR 'CANCEL' OR 'EXIT'.
+      LEAVE TO SCREEN 0.
+  ENDCASE.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Form  SEARCH
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM search .
+
+  DATA: t_data LIKE zsb_t_ds.
+
+  SELECT SINGLE * FROM zsb_t_ds INTO t_data WHERE tckno = gv_tcno.
+
+  gv_ad          = t_data-ad.
+  gv_soyad       = t_data-soyad.
+  gv_dogumyeri   = t_data-dogum_yeri.
+  gv_dtarihi     = t_data-dogum_tarihi.
+
+  IF t_data-cinsiyet = 'BAY'.
+    gv_bay = 'X'.
+    clear: gv_bayan.
+  ELSE.
+    gv_bayan = 'X'.
+    clear: gv_bay.
+  ENDIF.
+
+  IF t_data-yabanci_dil = 'İngilizce' and gv_diger = '' .
+    gv_ing = 'X'.
+    clear: gv_diger.
+  ELSE.
+    gv_diger = 'X'.
+    clear: gv_ing.
+  ENDIF.
+
+  IF t_data-egitim_durumu = 'Ön Lisans'.
+    gv_onlisans = 'X'.
+    clear: gv_lisans, gv_ylisans.
+  ELSEIF t_data-egitim_durumu = 'Lisans'.
+    gv_lisans = 'X'.
+    clear: gv_onlisans, gv_ylisans.
+  ELSE.
+    gv_ylisans = 'X'.
+    clear: gv_onlisans, gv_lisans.
+  ENDIF.
+
+  IF sy-subrc EQ 0.
+    MESSAGE s003(zyam).
+  ELSE.
+    MESSAGE i004(zyam).
+  ENDIF.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SAVE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM save .
+
+  zsb_t_ds-tckno         = gv_tcno.
+  zsb_t_ds-ad            = gv_ad.
+  zsb_t_ds-soyad         = gv_soyad.
+  zsb_t_ds-dogum_yeri    = gv_dogumyeri.
+  zsb_t_ds-dogum_tarihi  = gv_dtarihi.
+
+  IF gv_bay = 'X'.
+    zsb_t_ds-cinsiyet = 'BAY'.
+  ELSE.
+    zsb_t_ds-cinsiyet = 'BAYAN'.
+  ENDIF.
+
+  IF gv_ing = 'X' and gv_diger = ''.
+    zsb_t_ds-yabanci_dil = 'İngilizce'.
+  ELSE.
+    zsb_t_ds-yabanci_dil = gv_lang.
+  ENDIF.
+
+  IF gv_onlisans = 'X'.
+    zsb_t_ds-egitim_durumu = ' Ön Lisans'.
+  ELSEIF gv_lisans = 'X'.
+    zsb_t_ds-egitim_durumu = 'Lisans'.
+  ELSE.
+    zsb_t_ds-egitim_durumu = 'Yüksek Lisans'.
+  ENDIF.
+
+  INSERT zsb_t_ds.
+
+  CLEAR:gv_tcno,
+        gv_ad,
+        gv_soyad,
+        gv_dogumyeri,
+        gv_dtarihi,
+        gv_bay,
+        gv_bayan,
+        gv_ing,
+        gv_onlisans,
+        gv_lisans,
+        gv_ylisans,
+        gv_diger,
+        gv_lang.
+
+  IF sy-subrc = 0.
+    MESSAGE s001(zyam).
+  ELSE.
+    MESSAGE i002(zyam).
+  ENDIF.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  ERASE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM erase .
+
+  DELETE FROM zsb_t_ds WHERE tckno = gv_tcno.
+
+  IF sy-subrc EQ 0.
+    MESSAGE s005(zyam).
+  ELSE.
+    MESSAGE i006(zyam).
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  UPDATE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM update .
+
+  DATA: lv_egitim   LIKE zsb_t_ds-egitim_durumu,
+        lv_cinsiyet LIKE zsb_t_ds-cinsiyet,
+        lv_dil      LIKE zsb_t_ds-yabanci_dil.
+
+  IF gv_bay = 'X'.
+    lv_cinsiyet = 'BAY'.
+  ELSE.
+    lv_cinsiyet = 'BAYAN'.
+  ENDIF.
+
+  IF gv_ing = 'X' and gv_diger = ''.
+  ELSE.
+    lv_dil = gv_lang.
+  ENDIF.
+
+  IF gv_onlisans = 'X'.
+    lv_egitim = ' Ön Lisans'.
+  ELSEIF gv_lisans = 'X'.
+    lv_egitim = 'Lisans'.
+  ELSE.
+    lv_egitim = 'Yüksek Lisans'.
+  ENDIF.
+
+  UPDATE zsb_t_ds SET
+
+  tckno           = gv_tcno
+  ad              = gv_ad
+  soyad           = gv_soyad
+  dogum_yeri      = gv_dogumyeri
+  dogum_tarihi    = gv_dtarihi
+  cinsiyet        = lv_cinsiyet
+  yabanci_dil     = lv_dil
+  egitim_durumu   = lv_egitim
+
+    WHERE tckno = gv_tcno.
+
+  IF sy-subrc EQ 0.
+    MESSAGE s007(zyam).
+  ELSE.
+    MESSAGE i008(zyam).
+  ENDIF.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CLEAN
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM clean .
+  CLEAR: gv_tcno,
+         gv_ad,
+         gv_soyad,
+         gv_dogumyeri,
+         gv_dtarihi,
+         gv_bay,
+         gv_bayan,
+         gv_ing,
+         gv_onlisans,
+         gv_lisans,
+         gv_ylisans,
+         gv_diger,
+         gv_lang.
+
+ENDFORM.
